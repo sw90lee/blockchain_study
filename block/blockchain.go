@@ -1,12 +1,15 @@
 package block
 
 import (
+	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
 	"time"
+
+	"github.com/sw90lee/blockchain_study/utils"
 )
 
 // 앞 0이 3개가나오면 작업증명완료 난이도 설정
@@ -157,7 +160,7 @@ func (bc *Blockchain) ProofOfWork() int {
 /////////////////////////////////////
 // Mining
 func (bc *Blockchain) Mining() bool {
-	bc.AddTransaction(MINING_SENDER, bc.blockchainAddress, MINING_REWORD)
+	bc.AddTransaction(MINING_SENDER, bc.blockchainAddress, MINING_REWORD, nil, nil)
 	nonce := bc.ProofOfWork()
 	previousHash := bc.LastBlock().Hash()
 	bc.CreateBlock(nonce, previousHash)
@@ -183,7 +186,29 @@ func (bc *Blockchain) CaculateTotalAmount(blockchainAddress string) float32 {
 	return totalAmount
 }
 
-func (bc *Blockchain) AddTransaction(sender string, recipient string, value float32) {
+func (bc *Blockchain) AddTransaction(sender string, recipient string, value float32, senderPublicKey *ecdsa.PublicKey, s *utils.Signature) bool {
 	t := NewTransation(sender, recipient, value)
 	bc.transactionPool = append(bc.transactionPool, t)
+
+	if sender == MINING_SENDER {
+		bc.transactionPool = append(bc.transactionPool, t)
+		return true
+	}
+
+	if bc.VerifyTransationSignature(senderPublicKey, s, t) {
+		if bc.CaculateTotalAmount(sender) < value {
+			log.Println("ERROR: 지갑에 충분한 balance가 없습니다.")
+		}
+		bc.transactionPool = append(bc.transactionPool, t)
+		return true
+	} else {
+		log.Println("ERROR: verify Transecation")
+	}
+	return false
+}
+
+func (bc *Blockchain) VerifyTransationSignature(senderPublicKey *ecdsa.PublicKey, s *utils.Signature, t *Transactions) bool {
+	m, _ := json.Marshal(t)
+	h := sha256.Sum256(m)
+	return ecdsa.Verify(senderPublicKey, h[:], s.R, s.S)
 }
