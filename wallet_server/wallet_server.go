@@ -1,8 +1,8 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"io"
 	"log"
@@ -10,6 +10,7 @@ import (
 	"path"
 	"strconv"
 
+	"github.com/sw90lee/blockchain_study/block"
 	"github.com/sw90lee/blockchain_study/utils"
 	"github.com/sw90lee/blockchain_study/wallet"
 )
@@ -76,9 +77,29 @@ func (ws *WalletServer) CreateTransaction(w http.ResponseWriter, r *http.Request
 
 		value32 := float32(value)
 
-		fmt.Println(publicKey)
-		fmt.Println(privateKey)
-		fmt.Printf("%.1f", value32)
+		w.Header().Add("Content-Type", "application/json")
+
+		transaction := wallet.NewTransaction(privateKey, publicKey, *t.SenderBlockchainAddress, *t.RecipientBlockchainAddress, value32)
+		signature := transaction.GenerateSignature()
+		signatureStr := signature.String()
+
+		bt := &block.TransactionRequest{
+			t.SenderBlockchainAddress,
+			t.RecipientBlockchainAddress,
+			t.SenderPublicKey,
+			&value32,
+			&signatureStr,
+		}
+
+		m, _ := json.Marshal(bt)
+		buf := bytes.NewBuffer(m)
+
+		resq, err := http.Post(ws.Gateway()+"/transactions", "application/json", buf)
+		if resq.StatusCode == 201 {
+			io.WriteString(w, string(utils.JsonStatus("success")))
+			return
+		}
+		io.WriteString(w, string(utils.JsonStatus("failed")))
 	}
 }
 
