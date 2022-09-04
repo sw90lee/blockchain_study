@@ -68,13 +68,12 @@ func (w *Wallet) PrivateKeyStr() string {
 	return fmt.Sprintf("%x", w.privateKey.D.Bytes())
 }
 
-// publicKey 생성
 func (w *Wallet) PublicKey() *ecdsa.PublicKey {
 	return w.publicKey
 }
 
 func (w *Wallet) PublicKeyStr() string {
-	return fmt.Sprintf("%064x%064x", w.publicKey.X.Bytes(), w.PublicKey().Y.Bytes())
+	return fmt.Sprintf("%064x%064x", w.publicKey.X.Bytes(), w.publicKey.Y.Bytes())
 }
 
 func (w *Wallet) BlockchainAddress() string {
@@ -93,9 +92,7 @@ func (w *Wallet) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// Signture for Transation
-
-type Transation struct {
+type Transaction struct {
 	senderPrivateKey           *ecdsa.PrivateKey
 	senderPublicKey            *ecdsa.PublicKey
 	senderBlockchainAddress    string
@@ -103,19 +100,19 @@ type Transation struct {
 	value                      float32
 }
 
-func NewTransaction(privateKey *ecdsa.PrivateKey, publickey *ecdsa.PublicKey, sender, recipient string, value float32) *Transation {
-	return &Transation{privateKey, publickey, sender, recipient, value}
+func NewTransaction(privateKey *ecdsa.PrivateKey, publicKey *ecdsa.PublicKey,
+	sender string, recipient string, value float32) *Transaction {
+	return &Transaction{privateKey, publicKey, sender, recipient, value}
 }
 
-func (t *Transation) GenerateSignature() *utils.Signature {
+func (t *Transaction) GenerateSignature() *utils.Signature {
 	m, _ := json.Marshal(t)
 	h := sha256.Sum256([]byte(m))
 	r, s, _ := ecdsa.Sign(rand.Reader, t.senderPrivateKey, h[:])
 	return &utils.Signature{r, s}
-
 }
 
-func (t *Transation) MarshalJSON() ([]byte, error) {
+func (t *Transaction) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Sender    string  `json:"sender_blockchain_address"`
 		Recipient string  `json:"recipient_blockchain_address"`
@@ -127,7 +124,7 @@ func (t *Transation) MarshalJSON() ([]byte, error) {
 	})
 }
 
-type TransationRequest struct {
+type TransactionRequest struct {
 	SenderPrivateKey           *string `json:"sender_private_key"`
 	SenderBlockchainAddress    *string `json:"sender_blockchain_address"`
 	RecipientBlockchainAddress *string `json:"recipient_blockchain_address"`
@@ -135,7 +132,7 @@ type TransationRequest struct {
 	Value                      *string `json:"value"`
 }
 
-func (tr *TransationRequest) Validate() bool {
+func (tr *TransactionRequest) Validate() bool {
 	if tr.SenderPrivateKey == nil ||
 		tr.SenderBlockchainAddress == nil ||
 		tr.RecipientBlockchainAddress == nil ||
